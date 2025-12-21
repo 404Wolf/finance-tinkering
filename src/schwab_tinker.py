@@ -1,12 +1,12 @@
-from datetime import datetime, timedelta, time
+from datetime import datetime, time, timedelta
 from os import getenv
 from pprint import pprint
 
 import pandas as pd
+import pytz
 import schwabdev
 from alpha_vantage.fundamentaldata import FundamentalData
 from dotenv import load_dotenv
-import pytz
 
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
@@ -57,21 +57,23 @@ def get_history_around_latest_earnings(symbol: str):
     return df
 
 
-df = get_history_around_latest_earnings("GOOGL")
+df = get_history_around_latest_earnings("AAPL")
+filtered_df = df[df['datetime'].dt.time == time(15, 0)]
+earnings_date_3pm, next_day_3pm = filtered_df.iloc[0], filtered_df.iloc[1]
 
-# earnings day at 3pm Eastern time
-eastern = pytz.timezone("US/Eastern")
-earnings_day = df['datetime'].dt.date.min()  # first day in dataset
-print(earnings_day)
+# Get the datetime values for the two 3pm points
+earnings_date_3pm_time = earnings_date_3pm['datetime']
+next_day_3pm_time = next_day_3pm['datetime']
 
-target_3pm = eastern.localize(datetime.combine(earnings_day, time(15,0)))
+# Filter data between the two 3pm times
+between_3pms = df[(df['datetime'] >= earnings_date_3pm_time) & (df['datetime'] <= next_day_3pm_time)]
 
-# The bar containing 3pm: datetime <= 3pm < datetime + 30min
-three_pm_bar = df[
-    (df['datetime'] <= target_3pm) &
-    (df['datetime'] + pd.Timedelta(minutes=30) > target_3pm)
-]
+# Open price at 3PM on day of earnings
+before_earnings_open = df[df['datetime'] == earnings_date_3pm_time].iloc[0]['open']
 
-print(df)
-print("---- 3pm candle ----")
-print(three_pm_bar.iloc[0])
+# Find the highest 'high' value between the two 3pms
+highest_after_before_earnings = between_3pms['high'].max()
+
+percent_increase = ((highest_after_before_earnings/before_earnings_open) - 1)
+
+print(f"Percentage Increase: {percent_increase:.3%}")
