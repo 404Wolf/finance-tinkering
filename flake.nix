@@ -51,6 +51,8 @@
               pkgs.nil
               pkgs.nixd
               pkgs.nixfmt
+              pkgs.uv
+              pkgs.ruff
               python
             ];
           };

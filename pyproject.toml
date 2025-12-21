@@ -1,0 +1,15 @@
+[project]
+name = "finance-tests"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "alpha-vantage>=3.0.0",
+    "matplotlib>=3.10.8",
+    "numpy>=2.4.0",
+    "pandas>=2.3.3",
+    "python-dotenv>=1.2.1",
+    "pytz>=2025.2",
+    "schwabdev>=3.0.0",
+]
