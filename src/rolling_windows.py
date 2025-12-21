@@ -20,7 +20,15 @@ def fetch_spx_history():
     return df
 
 
-def generate_xxx_history(spx_df, start_value=100_000.0, start_date="1973-01-11", end_date=None, leverage=3.0, annual_fee_pct=1.0, tracking_error_std=0.001):
+def generate_xxx_history(
+    spx_df,
+    start_value=100_000.0,
+    start_date="1973-01-11",
+    end_date=None,
+    leverage=3.0,
+    annual_fee_pct=1.0,
+    tracking_error_std=0.001,
+):
     """
     Simulate leveraged ETF performance with realistic tracking errors and fees.
 
@@ -60,7 +68,7 @@ def generate_xxx_history(spx_df, start_value=100_000.0, start_date="1973-01-11",
     df["SPX_value"] = start_value * (1.0 + df["SPX_ret"]).cumprod()
 
     # Calculate daily fee rate (compounded daily)
-    daily_fee_rate = (1 + annual_fee_pct/100) ** (1/252) - 1
+    daily_fee_rate = (1 + annual_fee_pct / 100) ** (1 / 252) - 1
 
     # Calculate leveraged returns with tracking error and fees
     # 1. Apply leverage
@@ -84,7 +92,9 @@ def generate_xxx_history(spx_df, start_value=100_000.0, start_date="1973-01-11",
     df.rename(columns={"SPX": "SPX_price"}, inplace=True)
 
     # Add columns to track impact of fees and tracking error
-    df["XXX_perfect"] = start_value * (1.0 + np.maximum(leverage * df["SPX_ret"], -1.0)).cumprod()
+    df["XXX_perfect"] = (
+        start_value * (1.0 + np.maximum(leverage * df["SPX_ret"], -1.0)).cumprod()
+    )
     df["Fee_impact"] = df["XXX_perfect"] - df["XXX_value"]
 
     return df
@@ -104,7 +114,9 @@ def main():
     last_date = pd.to_datetime(last_date)
     spx_df = spx_df.loc[first_start_date:last_date].copy()
 
-    print(f"Testing all {holding_period_years}-year windows from {spx_df.index[0].date()} to {spx_df.index[-1].date()}...")
+    print(
+        f"Testing all {holding_period_years}-year windows from {spx_df.index[0].date()} to {spx_df.index[-1].date()}..."
+    )
 
     results = []
 
@@ -121,7 +133,13 @@ def main():
             continue
 
         try:
-            paths = generate_xxx_history(spx_df, start_value=start_capital, start_date=start_date, end_date=end_date, leverage=3.0)
+            paths = generate_xxx_history(
+                spx_df,
+                start_value=start_capital,
+                start_date=start_date,
+                end_date=end_date,
+                leverage=3.0,
+            )
 
             # Get final values
             final_spx = paths["SPX_value"].iloc[-1]
@@ -130,14 +148,16 @@ def main():
             # Check if leveraged ETF came out ahead
             xxx_ahead = final_xxx > final_spx
 
-            results.append({
-                'start_date': start_date,
-                'end_date': paths.index[-1],
-                'final_spx': final_spx,
-                'final_xxx': final_xxx,
-                'xxx_ahead': xxx_ahead,
-                'days_held': len(paths)
-            })
+            results.append(
+                {
+                    "start_date": start_date,
+                    "end_date": paths.index[-1],
+                    "final_spx": final_spx,
+                    "final_xxx": final_xxx,
+                    "xxx_ahead": xxx_ahead,
+                    "days_held": len(paths),
+                }
+            )
         except Exception as e:
             print(f"Error on {start_date}: {e}")
             continue
@@ -146,33 +166,45 @@ def main():
 
     # Calculate statistics
     total_tests = len(results_df)
-    xxx_wins = results_df['xxx_ahead'].sum()
+    xxx_wins = results_df["xxx_ahead"].sum()
     win_rate = (xxx_wins / total_tests) * 100
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print(f"RESULTS - {holding_period_years} YEAR HOLDING PERIODS")
-    print("="*60)
+    print("=" * 60)
     print(f"Total {holding_period_years}-year windows tested: {total_tests}")
     print(f"Times 3x ETF came out ahead: {xxx_wins}")
     print(f"Times S&P 500 came out ahead: {total_tests - xxx_wins}")
     print(f"Win rate for 3x ETF: {win_rate:.2f}%")
-    print("="*60)
+    print("=" * 60)
 
     # Show some example results
     print("\nFirst 10 start dates:")
-    print(results_df.head(10)[['start_date', 'end_date', 'final_spx', 'final_xxx', 'xxx_ahead']])
+    print(
+        results_df.head(10)[
+            ["start_date", "end_date", "final_spx", "final_xxx", "xxx_ahead"]
+        ]
+    )
 
     print("\nLast 10 start dates:")
-    print(results_df.tail(10)[['start_date', 'end_date', 'final_spx', 'final_xxx', 'xxx_ahead']])
+    print(
+        results_df.tail(10)[
+            ["start_date", "end_date", "final_spx", "final_xxx", "xxx_ahead"]
+        ]
+    )
 
     # Plot win rate over time
     plt.figure(figsize=(12, 6))
-    results_df['win_rate_rolling'] = results_df['xxx_ahead'].rolling(window=252, min_periods=1).mean() * 100
-    plt.plot(results_df['start_date'], results_df['win_rate_rolling'], linewidth=2)
-    plt.axhline(y=50, color='r', linestyle='--', alpha=0.5, label='50% (breakeven)')
+    results_df["win_rate_rolling"] = (
+        results_df["xxx_ahead"].rolling(window=252, min_periods=1).mean() * 100
+    )
+    plt.plot(results_df["start_date"], results_df["win_rate_rolling"], linewidth=2)
+    plt.axhline(y=50, color="r", linestyle="--", alpha=0.5, label="50% (breakeven)")
     plt.xlabel("Start Date")
     plt.ylabel("Win Rate (%) - 252 day rolling window")
-    plt.title(f"3x Leveraged ETF Win Rate vs S&P 500 ({holding_period_years}-Year Windows)\n(Overall: {win_rate:.2f}%)")
+    plt.title(
+        f"3x Leveraged ETF Win Rate vs S&P 500 ({holding_period_years}-Year Windows)\n(Overall: {win_rate:.2f}%)"
+    )
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
