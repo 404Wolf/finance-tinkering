@@ -10,8 +10,6 @@ from alpha_vantage.fundamentaldata import FundamentalData
 
 load_dotenv()
 
-# ------------------ clients ------------------
-
 ALPHAVANTAGE_API_KEY = getenv("ALPHAVANTAGE_API_KEY")
 SCHWAB_APP_KEY = getenv("SCHWAB_APP_KEY")
 SCHWAB_APP_SECRET = getenv("SCHWAB_APP_SECRET")
@@ -19,7 +17,7 @@ SCHWAB_APP_SECRET = getenv("SCHWAB_APP_SECRET")
 ALPACA_SECRET_KEY = getenv("ALPACA_SECRET_KEY")
 ALPACA_API_KEY = getenv("ALPACA_API_KEY")
 
-client = StockHistoricalDataClient(
+alpaca = StockHistoricalDataClient(
     ALPACA_API_KEY,
     ALPACA_SECRET_KEY,
 )
@@ -32,25 +30,19 @@ pd.set_option("display.width", None)
 pd.set_option("display.max_colwidth", None)
 
 
-# ------------------ earnings dates ------------------
+def getEarningsDays(symbol: str, n: int = 3) -> list[tuple[datetime, str]]:
+    earnings: pd.DataFrame = pd.DataFrame(fd.get_earnings_quarterly(symbol)[0])
 
-def getEarningsDays(symbol: str, n: int = 3):
-    earnings: pd.DataFrame = pd.DataFrame(
-        fd.get_earnings_quarterly(symbol)[0]
-    )
-
-    results = []
+    results: list[tuple[datetime, str]] = []
 
     for i in range(min(n, len(earnings))):
         row = earnings.iloc[i]
         earnings_date = datetime.strptime(row["reportedDate"], "%Y-%m-%d")
-        release_time = row["reportTime"]
-        results.append([earnings_date, release_time])
+        release_time: str = row["reportTime"]
+        results.append((earnings_date, release_time))
 
     return results
 
-
-# ------------------ core logic ------------------
 
 def percent_move_3pm_to_next_3pm(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -74,29 +66,26 @@ def percent_move_3pm_to_next_3pm(df: pd.DataFrame) -> pd.DataFrame:
         start_ts = start_idx[1]
         end_ts = end_idx[1]
 
-        window = df.loc[
-            (slice(None), slice(start_ts, end_ts)),
-            :
-        ]
+        window = df.loc[(slice(None), slice(start_ts, end_ts)), :]
 
         open_3pm = df.loc[start_idx, "open"]
         max_high = window["high"].max()
 
         percent_move = (max_high / open_3pm) - 1
 
-        results.append({
-            "start_3pm": start_ts,
-            "open_3pm": open_3pm,
-            "max_high": max_high,
-            "percent_move": percent_move
-        })
+        results.append(
+            {
+                "start_3pm": start_ts,
+                "open_3pm": open_3pm,
+                "max_high": max_high,
+                "percent_move": percent_move,
+            }
+        )
 
     return pd.DataFrame(results)
 
 
-# ------------------ earnings spike wrapper ------------------
-
-def get3pmspike(earningsDateData, symbol: str):
+def get3pmspike(earningsDateData: list[tuple[datetime, str]], symbol: str):
     all_results = []
 
     for earnings_date, release_time in earningsDateData:
@@ -113,7 +102,7 @@ def get3pmspike(earningsDateData, symbol: str):
             start=start,
             end=end,
         )
-        bars = client.get_stock_bars(request)
+        bars = alpaca.get_stock_bars(request)
         df = bars.df
 
         # normalize index
@@ -133,10 +122,8 @@ def get3pmspike(earningsDateData, symbol: str):
     return pd.DataFrame()
 
 
-# ------------------ run ------------------
-
 ticker = "NKE"
-earnings = getEarningsDays(ticker, 3)
+earnings = getEarningsDays(ticker, 10)
 result = get3pmspike(earnings, ticker)
 
 print(result)

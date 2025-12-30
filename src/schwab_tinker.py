@@ -27,7 +27,10 @@ if SCHWAB_APP_KEY is None or SCHWAB_APP_SECRET is None or ALPHAVANTAGE_API_KEY i
 fd = FundamentalData(key=ALPHAVANTAGE_API_KEY)
 ts = TimeSeries(key=ALPHAVANTAGE_API_KEY, output_format="pandas")
 
-def get_date_range_intraday(start_date: datetime, end_date: datetime, ticker: str) -> pd.DataFrame:
+
+def get_date_range_intraday(
+    start_date: datetime, end_date: datetime, ticker: str
+) -> pd.DataFrame:
     # Make start_date and end_date timezone aware
     end_date = end_date.replace(hour=23, minute=59, second=59, microsecond=999999)
 
@@ -41,20 +44,27 @@ def get_date_range_intraday(start_date: datetime, end_date: datetime, ticker: st
         month_str = month.strftime("%Y-%m")
 
         # print(f"symbol={ticker}, interval=60min, month={month_str}, outputsize=full")
-        intraday_data: pd.DataFrame = ts.get_intraday(  # pyright: ignore[reportAssignmentType]
-            symbol=ticker, interval="30min", month=month_str, outputsize="full"
-        )[0]
+        intraday_data: pd.DataFrame = (
+            ts.get_intraday(  # pyright: ignore[reportAssignmentType]
+                symbol=ticker, interval="30min", month=month_str, outputsize="full"
+            )[0]
+        )
 
         data = pd.concat([data, intraday_data])
 
     data = data.sort_index()
 
     # then filter with timezone-aware datetime objects
-    data: pd.DataFrame = data[(data.index >= start_date) & (data.index <= end_date)]  # pyright: ignore[reportAssignmentType]
+    data: pd.DataFrame = data[
+        (data.index >= start_date) & (data.index <= end_date)
+    ]  # pyright: ignore[reportAssignmentType]
 
     return data
 
-def get_history_around_previous_earnings(symbol: str, n: int = 1, j: int = 0) -> Generator[tuple[pd.DataFrame, datetime], None, None]:
+
+def get_history_around_previous_earnings(
+    symbol: str, n: int = 1, j: int = 0
+) -> Generator[tuple[pd.DataFrame, datetime], None, None]:
     earnings: pd.DataFrame = pd.DataFrame(fd.get_earnings_quarterly(symbol)[0])
 
     for i in range(j, min(n, len(earnings))):
@@ -70,8 +80,12 @@ def get_history_around_previous_earnings(symbol: str, n: int = 1, j: int = 0) ->
         yield (intradata_data, earnings_date)  # pyright: ignore[reportReturnType]
 
 
-def get_3pm_to_next_day_post_earnings_spike_percent(ticker: str, history_around_earnings: pd.DataFrame) -> float:
-    history_at_3pm = history_around_earnings[history_around_earnings.index.hour == 15]  # pyright: ignore[reportAttributeAccessIssue]
+def get_3pm_to_next_day_post_earnings_spike_percent(
+    ticker: str, history_around_earnings: pd.DataFrame
+) -> float:
+    history_at_3pm = history_around_earnings[
+        history_around_earnings.index.hour == 15
+    ]  # pyright: ignore[reportAttributeAccessIssue]
 
     # Get the datetime values for the two 3pm points
     earnings_date_3pm_time = history_at_3pm.index[0]
@@ -83,7 +97,9 @@ def get_3pm_to_next_day_post_earnings_spike_percent(ticker: str, history_around_
         & (history_around_earnings.index <= next_day_3pm_time)
     ]
     # Open price at 3PM on day of earnings
-    before_earnings_open = history_around_earnings[history_around_earnings.index == earnings_date_3pm_time].iloc[0]["1. open"]
+    before_earnings_open = history_around_earnings[
+        history_around_earnings.index == earnings_date_3pm_time
+    ].iloc[0]["1. open"]
 
     # Find the highest 'high' value between the two 3pms
     highest_after_before_earnings = between_3pms["2. high"].max()
@@ -92,9 +108,14 @@ def get_3pm_to_next_day_post_earnings_spike_percent(ticker: str, history_around_
 
     return percent_increase
 
+
 ticker = "TSLA"
-for history_around_earnings, earnings_date in get_history_around_previous_earnings(ticker, n=5000, j=0):
-    percent_increase = get_3pm_to_next_day_post_earnings_spike_percent(ticker, history_around_earnings)
+for history_around_earnings, earnings_date in get_history_around_previous_earnings(
+    ticker, n=5000, j=0
+):
+    percent_increase = get_3pm_to_next_day_post_earnings_spike_percent(
+        ticker, history_around_earnings
+    )
     print(f"Percent Increase: {percent_increase:.2%} on {earnings_date}")
     print()
-    sleep(.5)
+    sleep(0.5)
