@@ -26,8 +26,6 @@
             pandas
             numpy
             scipy
-            pandas-stubs
-            yfinance
           ]
         );
 

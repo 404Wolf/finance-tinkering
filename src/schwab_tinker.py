@@ -42,7 +42,7 @@ def get_date_range_intraday(start_date: datetime, end_date: datetime, ticker: st
 
         # print(f"symbol={ticker}, interval=60min, month={month_str}, outputsize=full")
         intraday_data: pd.DataFrame = ts.get_intraday(  # pyright: ignore[reportAssignmentType]
-            symbol=ticker, interval="60min", month=month_str, outputsize="full"
+            symbol=ticker, interval="30min", month=month_str, outputsize="full"
         )[0]
 
         data = pd.concat([data, intraday_data])
