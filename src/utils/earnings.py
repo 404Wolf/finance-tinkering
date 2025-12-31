@@ -1,8 +1,13 @@
 import datetime
 from datetime import date, time, timedelta
 from typing import Literal
+import os
+import glob
 
 import pandas as pd
+import mplfinance as mpf
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame
 
@@ -129,3 +134,137 @@ def get_3pm_spike(earningsDateData, symbol: str):
         return pd.DataFrame(all_results)
     else:
         raise ValueError("No data found")
+
+
+def get_earnings_window_data(earnings_date: date, symbol: str) -> pd.DataFrame:
+    """
+    Fetch OHLC data for +/- 1 day around the earnings date.
+    Returns DataFrame with timestamp index and OHLC columns.
+    """
+    start = earnings_date - timedelta(days=1)
+    end = earnings_date + timedelta(days=2)
+    
+    request = StockBarsRequest(
+        symbol_or_symbols=symbol,
+        timeframe=TimeFrame.Hour,  # pyright: ignore[reportArgumentType]
+        start=start,
+        end=end,
+    )
+    
+    bars = alpaca.get_stock_bars(request)
+    df = bars.df  # pyright: ignore[reportAttributeAccessIssue]
+    
+    df = df.reset_index()
+    df["timestamp"] = df["timestamp"].dt.tz_convert("America/New_York")
+    df = df.set_index("timestamp")
+    df = df.drop(columns=["symbol"])
+    
+    # Rename columns to match mplfinance requirements
+    df.columns = ["Open", "High", "Low", "Close", "Volume", "trade_count", "vwap"]
+    
+    return df[["Open", "High", "Low", "Close", "Volume"]]
+
+
+def plot_earnings_candles(
+    earnings_date: date,
+    release_time: Literal["post-market", "pre-market"],
+    symbol: str,
+    output_dir: str = "./plots"
+):
+    """
+    Create a candlestick plot for the earnings day +/- 1 day window.
+    Saves plot to output_dir with filename format: qX-YYYY.png
+    """
+    # Get data
+    df = get_earnings_window_data(earnings_date, symbol)
+    
+    if df.empty:
+        print(f"No data for {earnings_date}")
+        return
+    
+    # Determine earnings timestamp marker
+    if release_time == "post-market":
+        # After market close (4pm ET)
+        earnings_time = datetime.datetime.combine(earnings_date, time(16, 0))
+    else:  # pre-market
+        # Before market open (9:30am ET)
+        earnings_time = datetime.datetime.combine(earnings_date, time(9, 30))
+    
+    # Make timezone-aware
+    import pytz
+    eastern = pytz.timezone("America/New_York")
+    earnings_time = eastern.localize(earnings_time)
+    
+    # Create vertical line for earnings time
+    vlines = [earnings_time]
+    
+    # Generate filename: q1-2024.png format
+    year = earnings_date.year
+    quarter = (earnings_date.month - 1) // 3 + 1
+    filename = f"q{quarter}-{year}.png"
+    filepath = os.path.join(output_dir, filename)
+    
+    # Ensure output directory exists
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Create plot
+    mpf.plot(
+        df,
+        type="candle",
+        style="charles",
+        title=f"{symbol} Earnings - {earnings_date} ({release_time})",
+        ylabel="Price ($)",
+        volume=True,
+        vlines=dict(vlines=vlines, colors=["red"], linewidths=2, alpha=0.7),
+        savefig=filepath,
+    )
+    
+    print(f"Saved plot: {filepath}")
+
+
+def create_earnings_grid(symbol: str, plots_dir: str = "./plots", output_path: str = "./plots/earnings_grid.png"):
+    """
+    Create a grid of all earnings plots.
+    """
+    # Get all plot files
+    plot_files = sorted(glob.glob(os.path.join(plots_dir, "q*.png")))
+    
+    if not plot_files:
+        print("No plots found to create grid")
+        return
+    
+    n_plots = len(plot_files)
+    
+    # Calculate grid dimensions (try to make it roughly square)
+    n_cols = int(n_plots ** 0.5) + (1 if n_plots ** 0.5 % 1 > 0 else 0)
+    n_rows = (n_plots + n_cols - 1) // n_cols
+    
+    # Create figure with subplots
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(6 * n_cols, 4 * n_rows))
+    
+    # Flatten axes array for easier iteration
+    if n_rows == 1 and n_cols == 1:
+        axes = [axes]
+    else:
+        axes = axes.flatten() if n_rows > 1 or n_cols > 1 else [axes]
+    
+    # Plot each image
+    for idx, plot_file in enumerate(plot_files):
+        img = mpimg.imread(plot_file)
+        axes[idx].imshow(img)
+        axes[idx].axis('off')
+        
+        # Extract quarter info from filename for title
+        filename = os.path.basename(plot_file)
+        axes[idx].set_title(filename.replace('.png', '').upper(), fontsize=10, pad=5)
+    
+    # Hide unused subplots
+    for idx in range(n_plots, len(axes)):
+        axes[idx].axis('off')
+    
+    plt.suptitle(f"{symbol} Earnings Analysis - All Quarters", fontsize=16, y=0.995)
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=150, bbox_inches='tight')
+    plt.close()
+    
+    print(f"Saved earnings grid: {output_path}")

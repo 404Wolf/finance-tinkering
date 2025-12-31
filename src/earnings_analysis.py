@@ -1,10 +1,19 @@
 import numpy as np
 
-from .utils.earnings import get_3pm_spike, get_earnings_days
+from .utils.earnings import get_3pm_spike, get_earnings_days, plot_earnings_candles, create_earnings_grid
 
-ticker = "C"
+ticker = "AAPL"
 earnings = get_earnings_days(ticker, 16)
 result = get_3pm_spike(earnings, ticker)
+
+# Generate plots for each earnings date
+print("\nGenerating candlestick plots...")
+for earnings_date, release_time in earnings:
+    plot_earnings_candles(earnings_date, release_time, ticker)
+
+# Create grid of all plots
+print("\nCreating earnings grid...")
+create_earnings_grid(ticker)
 
 fixed_threshold = 3  # 3 percent (already scaled)
 
