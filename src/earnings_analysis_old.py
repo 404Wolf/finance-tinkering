@@ -1,0 +1,96 @@
+import numpy as np
+
+from .utils.earnings import get_3pm_spike, get_earnings_days, plot_earnings_candles, create_earnings_grid
+
+ticker = "AAPL"
+earnings = get_earnings_days(ticker, 16)
+result = get_3pm_spike(earnings, ticker)
+
+# Generate plots for each earnings date
+print("\nGenerating candlestick plots...")
+for earnings_date, release_time in earnings:
+    plot_earnings_candles(earnings_date, release_time, ticker)
+
+# Create grid of all plots
+print("\nCreating earnings grid...")
+create_earnings_grid(ticker)
+
+fixed_threshold = 3  # 3 percent (already scaled)
+
+# Compute some basic stats
+min_percent_move_high = result["percent_move_high"].min()
+avg_percent_move_high = result["percent_move_high"].mean()
+median_percent_move_high = result["percent_move_high"].median()
+
+count_above_fixed = (result["percent_move_high"] > fixed_threshold).sum()
+total_events = len(result)
+
+negative_open_moves = result.loc[
+    result["percent_move_open_to_open"] < 0, "percent_move_open_to_open"
+]
+
+avg_negative_open_move = (
+    negative_open_moves.mean() if not negative_open_moves.empty else np.nan
+)
+
+lowest_open_move = result["percent_move_open_to_open"].min()
+
+# Compute some fixed threshold conditional result
+conditional_fixed = np.where(
+    result["percent_move_high"] > fixed_threshold,
+    fixed_threshold,
+    result["percent_move_open_to_open"],
+).sum()
+
+mask_fixed = result["percent_move_high"] <= fixed_threshold
+open_moves_below_fixed = result.loc[mask_fixed, "percent_move_open_to_open"]
+
+avg_open_move_below_fixed = open_moves_below_fixed.mean()
+min_open_move_below_fixed = open_moves_below_fixed.min()
+
+median_minus_one_std = (
+    result["percent_move_high"].median() - result["percent_move_high"].std()
+)
+
+# Compute median-based thresholds
+median_minus_one = median_percent_move_high - 1
+median_minus_one_std = median_percent_move_high - result["percent_move_high"].std()
+
+median_thresholds = {
+    "Median - 1": median_minus_one,
+    "Median - 1 Std Dev": median_minus_one_std,
+}
+
+print(f"\nSummary statistics: {ticker}")
+
+print(f"Minimum Spike: {min_percent_move_high:.2f}%")
+print(f"Average Spike: {avg_percent_move_high:.2f}%")
+print(f"Median Spike: {median_percent_move_high:.2f}%")
+print(f"Earnings Count: {total_events}")
+
+for label, median_threshold in median_thresholds.items():
+    conditional_median = np.where(
+        result["percent_move_high"] > median_threshold,
+        median_threshold,
+        result["percent_move_open_to_open"],
+    ).sum()
+
+    mask_median = result["percent_move_high"] <= median_threshold
+    open_moves_below_median = result.loc[mask_median, "percent_move_open_to_open"]
+
+    avg_open_move_below_median = open_moves_below_median.mean()
+    min_open_move_below_median = open_moves_below_median.min()
+
+    print(f"\n--- {label} Threshold ({median_threshold:.2f}%) ---")
+    print(f"Conditional result: {conditional_median:.2f}")
+    print(f"Average Loss (threshold not met): {avg_open_move_below_median:.2f}%")
+    print(f"Largest Loss (threshold not met): {min_open_move_below_median:.2f}%")
+
+print(f"\n--- Fixed Threshold ({fixed_threshold:.2f}%) ---")
+print(f"Number of Spikes > threshold: {count_above_fixed}")
+print(f"Conditional result: {conditional_fixed:.2f}")
+print(f"Average Loss (threshold not met): {avg_open_move_below_fixed:.2f}%")
+print(f"Largest Loss (threshold not met): {min_open_move_below_fixed:.2f}%")
+
+print(f"\nAverage Loss No Threshold: {avg_negative_open_move:.2f}%")
+print(f"Largest Drop Overall: {lowest_open_move:.2f}%")
