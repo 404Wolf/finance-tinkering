@@ -14,4 +14,6 @@ dependencies = [
     "python-dotenv>=1.2.1",
     "pytz>=2025.2",
     "schwabdev>=3.0.0",
+    "scikit-learn>=1.8.0",
+    "tensorflow>=2.20.0",
 ]
