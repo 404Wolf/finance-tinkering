@@ -253,23 +253,11 @@ if not result.empty:
 
 
     # ----- output -----
-    print(f"\nSummary statistics: {ticker}")
-
-    print(f"Minimum Spike: {min_percent_move_high:.2f}%")
-    print(f"Average Spike: {avg_percent_move_high:.2f}%")
-    print(f"Median Spike: {median_percent_move_high:.2f}%")
-    print(f"Earnings Count: {total_events}")
-
     print(f"\n--- Fixed Threshold ({fixed_threshold:.2f}%) ---")
     print(f"Number of Spikes > threshold: {count_above_fixed}")
     print(f"Conditional result: {conditional_fixed:.2f}")
     print(f"Average Loss (threshold not met): {avg_open_move_below_fixed:.2f}%")
     print(f"Largest Loss (threshold not met): {min_open_move_below_fixed:.2f}%")
-
-    print(f"\n--- Median Threshold Minus 1 SD ({median_threshold:.2f}%) ---")
-    print(f"Conditional result: {conditional_median:.2f}")
-    print(f"Average Loss (threshold not met): {avg_open_move_below_median:.2f}%")
-    print(f"Largest Loss (threshold not met): {min_open_move_below_median:.2f}%")
 
     print(f"\nAverage Loss No Threshold: {avg_negative_open_move:.2f}%")
     print(f"Largest Drop Overall: {lowest_open_move:.2f}%")
