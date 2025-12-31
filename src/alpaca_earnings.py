@@ -134,56 +134,57 @@ def get3pmspike(earningsDateData, symbol: str):
     return pd.DataFrame()
 
 
-ticker = "CCL"
-earnings = getEarningsDays(ticker, 16)
-result = get3pmspike(earnings, ticker)
+def summarize_result(ticker: str, n_earnings: int = 16, threshold: float = 3):
+    earnings = getEarningsDays(ticker, n_earnings)
+    result = get3pmspike(earnings, ticker)
 
-if not result.empty:
-    min_percent_move_high = result["percent_move_high"].min()
+    if not result.empty:
+        min_percent_move_high = result["percent_move_high"].min()
 
-    count_above_3pct = (result["percent_move_high"] > 3).sum()
+        count_above_3pct = (result["percent_move_high"] > threshold).sum()
 
-    total_events = len(result)
+        total_events = len(result)
 
-    negative_open_moves = result.loc[
-        result["percent_move_open_to_open"] < 0,
-        "percent_move_open_to_open"
-    ]
+        negative_open_moves = result.loc[
+            result["percent_move_open_to_open"] < 0,
+            "percent_move_open_to_open"
+        ]
 
-    avg_negative_open_move = (
-        negative_open_moves.mean()
-        if not negative_open_moves.empty
-        else np.nan
-    )
+        avg_negative_open_move = (
+            negative_open_moves.mean()
+            if not negative_open_moves.empty
+            else np.nan
+        )
 
-    lowest_open_move = result["percent_move_open_to_open"].min()
+        lowest_open_move = result["percent_move_open_to_open"].min()
 
-    avg_percent_move_high = result["percent_move_high"].mean()
+        avg_percent_move_high = result["percent_move_high"].mean()
 
-    threshold = 3
-    conditional_result = np.where(
-        result["percent_move_high"] > threshold,
-        threshold,
-        result["percent_move_open_to_open"]
-    ).sum()
+        conditional_result = np.where(
+            result["percent_move_high"] > threshold,
+            threshold,
+            result["percent_move_open_to_open"]
+        ).sum()
 
-    mask = result["percent_move_high"] <= threshold
-    open_moves_below_threshold = result.loc[mask, "percent_move_open_to_open"]
+        mask = result["percent_move_high"] <= threshold
+        open_moves_below_threshold = result.loc[mask, "percent_move_open_to_open"]
 
-    avg_open_move_below_threshold = open_moves_below_threshold.mean()
-    min_open_move_below_threshold = open_moves_below_threshold.min()
+        avg_open_move_below_threshold = open_moves_below_threshold.mean()
+        min_open_move_below_threshold = open_moves_below_threshold.min()
 
-    print("\nSummary statistics:")
-    print(f"Minimum Spike: {min_percent_move_high:.4f}")
-    print(f"Average Spike: {avg_percent_move_high:.4f}")
-    print(f"Number of Spikes > 3%: {count_above_3pct}")
-    print(f"Earnings Count: {total_events}")
-    print(f"Average Loss No Threshold: {avg_negative_open_move:.4f}")
-    print(f"Largest Drop: {lowest_open_move:.4f}")
-    print(f"Conditional result (threshold={threshold:.2f}): {conditional_result:.4f}")
-    print(f"Average Loss (threshold not met): {avg_open_move_below_threshold:.4f}")
-    print(f"Largest Loss (threshold not met): {min_open_move_below_threshold:.4f}")
+        print("\nSummary statistics:")
+        print(f"Minimum Spike: {min_percent_move_high:.4f}")
+        print(f"Average Spike: {avg_percent_move_high:.4f}")
+        print(f"Number of Spikes > {threshold}%: {count_above_3pct}")
+        print(f"Earnings Count: {total_events}")
+        print(f"Average Loss No Threshold: {avg_negative_open_move:.4f}")
+        print(f"Largest Drop: {lowest_open_move:.4f}")
+        print(f"Conditional result (threshold={threshold:.2f}): {conditional_result:.4f}")
+        print(f"Average Loss (threshold not met): {avg_open_move_below_threshold:.4f}")
+        print(f"Largest Loss (threshold not met): {min_open_move_below_threshold:.4f}")
+
+    else:
+        print("\nNo events to summarize.")
 
 
-else:
-    print("\nNo events to summarize.")
+summarize_result("CCL", 16)
