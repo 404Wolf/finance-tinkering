@@ -43,6 +43,12 @@
 
         devShells = {
           default = pkgs.mkShell {
+            UV_VENV_CLEAR = "1";
+            shellHook = ''
+              uv sync
+              uv venv
+              source .venv/bin/activate
+            '';
             packages = [
               pkgs.typst
               pkgs.ruff
