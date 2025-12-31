@@ -1,4 +1,7 @@
 import pandas as pd
+from dotenv import load_dotenv
+
+load_dotenv()
 
 pd.set_option("display.max_rows", None)
 pd.set_option("display.max_columns", None)
