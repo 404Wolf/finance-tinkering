@@ -138,7 +138,7 @@ def get_3pm_spike(earningsDateData, symbol: str):
 
 def get_earnings_window_data(earnings_date: date, symbol: str) -> pd.DataFrame:
     """
-    Fetch OHLC data for +/- 1 day around the earnings date.
+    Fetch OHLC data from day before earnings (for 3pm reference) through day after.
     Returns DataFrame with timestamp index and OHLC columns.
     """
     start = earnings_date - timedelta(days=1)
@@ -193,6 +193,9 @@ def plot_earnings_candles(
     df_pct = df.copy()
     for col in ["Open", "High", "Low", "Close"]:
         df_pct[col] = ((df[col] / reference_price) - 1) * 100
+    
+    # Filter to only show data from 3pm reference point onwards
+    df_pct = df_pct[df_pct.index >= three_pm_before]
 
     # Earnings timestamp
     earnings_hour = time(16, 0) if release_time == "post-market" else time(9, 30)
