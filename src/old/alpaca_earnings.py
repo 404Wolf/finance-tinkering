@@ -69,27 +69,26 @@ def percent_move_3pm_to_next_3pm(df: pd.DataFrame) -> pd.DataFrame:
         start_ts = start_idx[1]
         end_ts = end_idx[1]
 
-        window = df.loc[
-            (slice(None), slice(start_ts, end_ts)),
-            :
-        ]
+        window = df.loc[(slice(None), slice(start_ts, end_ts)), :]
 
         open_3pm = df.loc[start_idx, "open"]
         next_3pm_open = df.loc[end_idx, "open"]
 
         max_high = window["high"].max()
 
-        percent_move_high = ((max_high / open_3pm) - 1)*100
-        percent_move_open_to_open = ((next_3pm_open / open_3pm) - 1)*100
+        percent_move_high = ((max_high / open_3pm) - 1) * 100
+        percent_move_open_to_open = ((next_3pm_open / open_3pm) - 1) * 100
 
-        results.append({
-            "start_3pm": start_ts,
-            "open_3pm": open_3pm,
-            "next_3pm_open": next_3pm_open,
-            "max_high": max_high,
-            "percent_move_high": percent_move_high,
-            "percent_move_open_to_open": percent_move_open_to_open,
-        })
+        results.append(
+            {
+                "start_3pm": start_ts,
+                "open_3pm": open_3pm,
+                "next_3pm_open": next_3pm_open,
+                "max_high": max_high,
+                "percent_move_high": percent_move_high,
+                "percent_move_open_to_open": percent_move_open_to_open,
+            }
+        )
 
     return pd.DataFrame(results)
 
@@ -146,14 +145,11 @@ def summarize_result(ticker: str, n_earnings: int = 16, threshold: float = 3):
         total_events = len(result)
 
         negative_open_moves = result.loc[
-            result["percent_move_open_to_open"] < 0,
-            "percent_move_open_to_open"
+            result["percent_move_open_to_open"] < 0, "percent_move_open_to_open"
         ]
 
         avg_negative_open_move = (
-            negative_open_moves.mean()
-            if not negative_open_moves.empty
-            else np.nan
+            negative_open_moves.mean() if not negative_open_moves.empty else np.nan
         )
 
         lowest_open_move = result["percent_move_open_to_open"].min()
@@ -163,7 +159,7 @@ def summarize_result(ticker: str, n_earnings: int = 16, threshold: float = 3):
         conditional_result = np.where(
             result["percent_move_high"] > threshold,
             threshold,
-            result["percent_move_open_to_open"]
+            result["percent_move_open_to_open"],
         ).sum()
 
         mask = result["percent_move_high"] <= threshold
@@ -179,7 +175,9 @@ def summarize_result(ticker: str, n_earnings: int = 16, threshold: float = 3):
         print(f"Earnings Count: {total_events}")
         print(f"Average Loss No Threshold: {avg_negative_open_move:.4f}")
         print(f"Largest Drop: {lowest_open_move:.4f}")
-        print(f"Conditional result (threshold={threshold:.2f}): {conditional_result:.4f}")
+        print(
+            f"Conditional result (threshold={threshold:.2f}): {conditional_result:.4f}"
+        )
         print(f"Average Loss (threshold not met): {avg_open_move_below_threshold:.4f}")
         print(f"Largest Loss (threshold not met): {min_open_move_below_threshold:.4f}")
 
