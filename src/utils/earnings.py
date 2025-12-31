@@ -183,10 +183,10 @@ def plot_earnings_candles(
     # Find 3pm bar on day before earnings
     eastern = pytz.timezone("America/New_York")
     day_before = earnings_date - timedelta(days=1)
-    reference_time = eastern.localize(datetime.datetime.combine(day_before, time(15, 0)))
+    three_pm_before = eastern.localize(datetime.datetime.combine(day_before, time(15, 0)))
 
     # Get reference price (3pm open price)
-    time_diffs = abs(df.index - reference_time)
+    time_diffs = abs(df.index - three_pm_before)
     reference_price = df.iloc[time_diffs.argmin()]["Open"]
 
     # Convert prices to % change (keep volume unchanged)
@@ -197,6 +197,9 @@ def plot_earnings_candles(
     # Earnings timestamp
     earnings_hour = time(16, 0) if release_time == "post-market" else time(9, 30)
     earnings_time = eastern.localize(datetime.datetime.combine(earnings_date, earnings_hour))
+
+    # 3pm after earnings
+    three_pm_after = eastern.localize(datetime.datetime.combine(earnings_date + timedelta(days=1), time(15, 0)))
 
     # Save plot
     year = earnings_date.year
@@ -211,10 +214,10 @@ def plot_earnings_candles(
         title=f"{symbol} Q{quarter}-{year} ({release_time})",
         ylabel="% Change from 3pm Day Before",
         volume=False,
-        vlines=dict(vlines=[earnings_time], colors=["red"], linewidths=2, alpha=0.7),
+        vlines=dict(vlines=[three_pm_before, earnings_time, three_pm_after], colors=["blue", "red", "blue"], linewidths=2, alpha=0.7),
         savefig=filepath,
     )
-    
+
     print(f"Saved plot: {filepath}")
 
 
