@@ -7,7 +7,7 @@ from .utils.earnings import get_3pm_spike, get_earnings_days
 
 parser = argparse.ArgumentParser(description='Analyze earnings data for a ticker')
 parser.add_argument('ticker', type=str, help='Stock ticker symbol')
-parser.add_argument('fixed_threshold', type=float, help='Fixed threshold for analysis')
+parser.add_argument('fixed_threshold', default=3, type=float, help='Fixed threshold for analysis')
 args = parser.parse_args()
 
 ticker = args.ticker
