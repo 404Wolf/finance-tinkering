@@ -12,6 +12,7 @@ from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame
 
 from .clients import EARNINGS_DATA, alpaca
+from . import memory
 
 def get_earnings_days( ticker: str, n: int = 3) -> list[tuple[date, Literal["post-market", "pre-market"]]]:
     """
@@ -95,11 +96,11 @@ def percent_move_3pm_to_next_3pm(df: pd.DataFrame) -> pd.DataFrame:
 
     return pd.DataFrame(results)
 
-
-def get_3pm_spike(earningsDateData, symbol: str):
+@memory.cache
+def get_3pm_spike(earnings_date_data: pd.DataFrame, symbol: str):
     all_results = []
 
-    for earnings_date, release_time in earningsDateData:
+    for earnings_date, release_time in earnings_date_data:
         if release_time == "post-market":
             start = earnings_date
             end = earnings_date + timedelta(days=2)
@@ -193,7 +194,7 @@ def plot_earnings_candles(
     df_pct = df.copy()
     for col in ["Open", "High", "Low", "Close"]:
         df_pct[col] = ((df[col] / reference_price) - 1) * 100
-    
+
     # Filter to only show data from 3pm reference point onwards
     df_pct = df_pct[df_pct.index >= three_pm_before]
 
