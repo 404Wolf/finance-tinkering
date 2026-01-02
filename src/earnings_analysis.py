@@ -1,115 +1,108 @@
-"""
-Simple earnings data analysis - no ML, just print the data.
-"""
-
 import numpy as np
-import pandas as pd
-from datetime import timedelta, time
-import pytz
+import argparse
 
-from .utils.earnings import get_earnings_days, get_earnings_window_data
-from .utils.clients import alpaca
-from alpaca.data.requests import StockBarsRequest
-from alpaca.data.timeframe import TimeFrame
+from .utils.earnings import get_3pm_spike, get_earnings_days
 
+def earnings_analysis(ticker: str):
+    earnings = get_earnings_days(ticker, 16)
+    result = get_3pm_spike(earnings, ticker)
+    print(result)
 
-def analyze_earnings(ticker: str, n_quarters: int = 20):
-    """
-    For each earnings event, print:
-    - Date
-    - Leading momentum
-    - Leading IV (volatility)
-    - Max spike %
-    - Min dip %
-    """
-    print(f"\n{'='*80}")
-    print(f"Earnings Analysis: {ticker}")
-    print(f"{'='*80}\n")
+    if not result.empty:
+        fixed_threshold = 3  # 3 percent (already scaled)
 
-    eastern = pytz.timezone("America/New_York")
-    earnings_data = get_earnings_days(ticker, n_quarters)
+        # Basic stats
+        min_percent_move_high = result["percent_move_high"].min()
+        avg_percent_move_high = result["percent_move_high"].mean()
+        median_percent_move_high = result["percent_move_high"].median()
 
-    results = []
+        count_above_fixed = (result["percent_move_high"] > fixed_threshold).sum()
+        total_events = len(result)
 
-    for earnings_date, release_time in earnings_data:
-        try:
-            # Get historical data for momentum/volatility
-            start = earnings_date - timedelta(days=30)
-            end = earnings_date
+        negative_open_moves = result.loc[
+            result["percent_move_open_to_open"] < 0,
+            "percent_move_open_to_open"
+        ]
 
-            request = StockBarsRequest(
-                symbol_or_symbols=ticker,
-                timeframe=TimeFrame.Day,
-                start=start,
-                end=end,
-            )
+        avg_negative_open_move = (
+            negative_open_moves.mean()
+            if not negative_open_moves.empty
+            else np.nan
+        )
 
-            bars = alpaca.get_stock_bars(request)
-            df_hist = bars.df
-            df_hist = df_hist.reset_index()
-            df_hist = df_hist.sort_values("timestamp")
+        lowest_open_move = result["percent_move_open_to_open"].min()
 
-            if len(df_hist) < 10:
-                continue
+        # Fixed threshold conditional result
+        conditional_fixed = np.where(
+            result["percent_move_high"] > fixed_threshold,
+            fixed_threshold,
+            result["percent_move_open_to_open"]
+        ).sum()
 
-            # Calculate momentum and volatility
-            returns = df_hist["close"].pct_change().dropna()
+        mask_fixed = result["percent_move_high"] <= fixed_threshold
+        open_moves_below_fixed = result.loc[mask_fixed, "percent_move_open_to_open"]
 
-            momentum_5d = (df_hist["close"].iloc[-1] / df_hist["close"].iloc[-6] - 1) * 100 if len(df_hist) >= 6 else 0
-            volatility_20d = returns.tail(20).std() * np.sqrt(252) * 100
+        avg_open_move_below_fixed = open_moves_below_fixed.mean()
+        min_open_move_below_fixed = open_moves_below_fixed.min()
 
-            # Get earnings window data
-            df_earnings = get_earnings_window_data(earnings_date, ticker)
-            if df_earnings.empty:
-                continue
+        median_minus_one_std = (
+        result["percent_move_high"].median()
+        - result["percent_move_high"].std()
+        )
 
-            # Reference: 3pm day before
-            day_before = earnings_date - timedelta(days=1)
-            three_pm_before = eastern.localize(pd.Timestamp.combine(day_before, time(15, 0)))
+        # Median-based thresholds
+        median_minus_one = median_percent_move_high - 1
+        median_minus_one_std = (
+            median_percent_move_high
+            - result["percent_move_high"].std()
+        )
 
-            time_diffs = abs(df_earnings.index - three_pm_before)
-            reference_price = df_earnings.iloc[time_diffs.argmin()]["Open"]
+        median_thresholds = {
+            "Median - 1": median_minus_one,
+            "Median - 1 Std Dev": median_minus_one_std,
+        }
 
-            # Calculate % from reference
-            df_pct = df_earnings.copy()
-            for col in ["Open", "High", "Low", "Close"]:
-                df_pct[col] = ((df_earnings[col] / reference_price) - 1) * 100
+        print(f"\nSummary statistics: {ticker}")
 
-            # Window: 3pm before to 3pm after
-            three_pm_after = eastern.localize(pd.Timestamp.combine(earnings_date + timedelta(days=1), time(15, 0)))
-            df_window = df_pct[(df_pct.index >= three_pm_before) & (df_pct.index <= three_pm_after)]
+        print(f"Minimum Spike: {min_percent_move_high:.2f}%")
+        print(f"Average Spike: {avg_percent_move_high:.2f}%")
+        print(f"Median Spike: {median_percent_move_high:.2f}%")
+        print(f"Earnings Count: {total_events}")
 
-            if df_window.empty:
-                continue
+        for label, median_threshold in median_thresholds.items():
+            conditional_median = np.where(
+                result["percent_move_high"] > median_threshold,
+                median_threshold,
+                result["percent_move_open_to_open"]
+            ).sum()
 
-            # Max and min
-            max_spike = df_window["High"].max()
-            min_dip = df_window["Low"].min()
+            mask_median = result["percent_move_high"] <= median_threshold
+            open_moves_below_median = result.loc[
+                mask_median, "percent_move_open_to_open"
+            ]
 
-            results.append({
-                'date': earnings_date,
-                'timing': release_time,
-                'momentum_5d': momentum_5d,
-                'iv_20d': volatility_20d,
-                'max_spike': max_spike,
-                'min_dip': min_dip
-            })
+            avg_open_move_below_median = open_moves_below_median.mean()
+            min_open_move_below_median = open_moves_below_median.min()
 
-        except Exception as e:
-            print(f"Error on {earnings_date}: {e}")
-            continue
+            print(f"\n--- {label} Threshold ({median_threshold:.2f}%) ---")
+            print(f"Conditional result: {conditional_median:.2f}")
+            print(f"Average Loss (threshold not met): {avg_open_move_below_median:.2f}%")
+            print(f"Largest Loss (threshold not met): {min_open_move_below_median:.2f}%")
 
-    # Print results
-    print(f"{'Date':<12} {'Timing':<12} {'Mom 5d':>8} {'IV 20d':>8} {'Max %':>8} {'Min %':>8}")
-    print("-" * 80)
+        print(f"\n--- Fixed Threshold ({fixed_threshold:.2f}%) ---")
+        print(f"Number of Spikes > threshold: {count_above_fixed}")
+        print(f"Conditional result: {conditional_fixed:.2f}")
+        print(f"Average Loss (threshold not met): {avg_open_move_below_fixed:.2f}%")
+        print(f"Largest Loss (threshold not met): {min_open_move_below_fixed:.2f}%")
 
-    for r in results:
-        print(f"{str(r['date']):<12} {r['timing']:<12} {r['momentum_5d']:>7.2f}% {r['iv_20d']:>7.2f}% {r['max_spike']:>7.2f}% {r['min_dip']:>7.2f}%")
+        print(f"\nAverage Loss No Threshold: {avg_negative_open_move:.2f}%")
+        print(f"Largest Drop Overall: {lowest_open_move:.2f}%")
 
+    else:
+        print("\nNo events to summarize.")
 
-if __name__ == "__main__":
-    tickers = ["AAPL", "TSLA", "NVDA", "MSFT"]
+parser = argparse.ArgumentParser(description='Analyze earnings data for a ticker')
+parser.add_argument('ticker', type=str, help='Stock ticker symbol')
+args = parser.parse_args()
 
-    for ticker in tickers:
-        analyze_earnings(ticker, n_quarters=20)
-        print("\n")
+ticker = args.ticker
