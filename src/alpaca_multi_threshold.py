@@ -35,7 +35,7 @@ pd.set_option("display.max_colwidth", None)
 
 # ------------------ earnings dates ------------------
 
-def getEarningsDays(symbol: str, n: int = 3, csv_path: str = "earningsdata.csv"):
+def getEarningsDays(symbol: str, n: int = 3, csv_path: str = "data/earnings.csv"):
     earnings = pd.read_csv(csv_path)
 
     # filter for symbol
@@ -130,7 +130,7 @@ def get3pmspike(earningsDateData, symbol: str):
         elif release_time == "pre-market":
             start = earnings_date - timedelta(days=1)
             end = earnings_date + timedelta(days=1)
-        else: 
+        else:
             print("Date error. Could be caused by before/after day being a weekend.")
             break
 
@@ -224,7 +224,7 @@ if not result.empty:
         "Median - 1": median_minus_one,
         "Median - 1 Std Dev": median_minus_one_std,
     }
-    
+
     print(f"\nSummary statistics: {ticker}")
 
     print(f"Minimum Spike: {min_percent_move_high:.2f}%")
