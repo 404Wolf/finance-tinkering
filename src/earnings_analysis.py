@@ -106,3 +106,4 @@ parser.add_argument('ticker', type=str, help='Stock ticker symbol')
 args = parser.parse_args()
 
 ticker = args.ticker
+earnings_analysis(ticker)
