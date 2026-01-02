@@ -3,14 +3,12 @@ import argparse
 
 from .utils.earnings import get_3pm_spike, get_earnings_days
 
-def earnings_analysis(ticker: str):
+def earnings_analysis(ticker: str, fixed_threshold: float):
     earnings = get_earnings_days(ticker, 16)
     result = get_3pm_spike(earnings, ticker)
     print(result)
 
     if not result.empty:
-        fixed_threshold = 3  # 3 percent (already scaled)
-
         # Basic stats
         min_percent_move_high = result["percent_move_high"].min()
         avg_percent_move_high = result["percent_move_high"].mean()
@@ -103,7 +101,9 @@ def earnings_analysis(ticker: str):
 
 parser = argparse.ArgumentParser(description='Analyze earnings data for a ticker')
 parser.add_argument('ticker', type=str, help='Stock ticker symbol')
+parser.add_argument('fixed_threshold', type=float, help='Fixed threshold for analysis')
 args = parser.parse_args()
 
 ticker = args.ticker
-earnings_analysis(ticker)
+fixed_threshold = args.fixed_threshold
+earnings_analysis(ticker, fixed_threshold)
