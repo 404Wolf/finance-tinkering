@@ -13,7 +13,7 @@ from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame
 
 
-def analyze_earnings(ticker: str, n_quarters: int = 20):
+def analyze_earnings(ticker: str, n_quarters: int = 20, reference_time: time = time(15, 0)):
     """
     For each earnings event, print:
     - Date
@@ -21,6 +21,11 @@ def analyze_earnings(ticker: str, n_quarters: int = 20):
     - Leading IV (volatility)
     - Max spike %
     - Min dip %
+    
+    Args:
+        ticker: Stock ticker symbol
+        n_quarters: Number of quarters to analyze
+        reference_time: Time to use as reference point (default: 3pm)
     """
     print(f"\n{'='*80}")
     print(f"Earnings Analysis: {ticker}")
@@ -63,11 +68,11 @@ def analyze_earnings(ticker: str, n_quarters: int = 20):
             if df_earnings.empty:
                 continue
 
-            # Reference: 3pm day before
+            # Reference: reference_time day before
             day_before = earnings_date - timedelta(days=1)
-            three_pm_before = eastern.localize(pd.Timestamp.combine(day_before, time(15, 0)))
+            reference_before = eastern.localize(pd.Timestamp.combine(day_before, reference_time))
 
-            time_diffs = abs(df_earnings.index - three_pm_before)
+            time_diffs = abs(df_earnings.index - reference_before)
             reference_price = df_earnings.iloc[time_diffs.argmin()]["Open"]
 
             # Calculate % from reference
@@ -75,9 +80,9 @@ def analyze_earnings(ticker: str, n_quarters: int = 20):
             for col in ["Open", "High", "Low", "Close"]:
                 df_pct[col] = ((df_earnings[col] / reference_price) - 1) * 100
 
-            # Window: 3pm before to 3pm after
-            three_pm_after = eastern.localize(pd.Timestamp.combine(earnings_date + timedelta(days=1), time(15, 0)))
-            df_window = df_pct[(df_pct.index >= three_pm_before) & (df_pct.index <= three_pm_after)]
+            # Window: reference_time before to reference_time after
+            reference_after = eastern.localize(pd.Timestamp.combine(earnings_date + timedelta(days=1), reference_time))
+            df_window = df_pct[(df_pct.index >= reference_before) & (df_pct.index <= reference_after)]
 
             if df_window.empty:
                 continue
