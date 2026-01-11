@@ -12,7 +12,21 @@ from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame
 
 from .clients import EARNINGS_DATA, alpaca
+from .trading_calendar import trading_days
 from . import memory
+
+
+def prev_trading_day(date):
+    idx = trading_days.searchsorted(date)
+    if idx == 0:
+        raise ValueError("No previous trading day")
+    return trading_days[idx - 1]
+
+def next_trading_day(date):
+    idx = trading_days.searchsorted(date, side="right")
+    if idx == len(trading_days):
+        raise ValueError("No next trading day")
+    return trading_days[idx]
 
 def get_earnings_days( ticker: str, n: int = 3) -> list[tuple[date, Literal["post-market", "pre-market"]]]:
     """
@@ -40,7 +54,7 @@ def get_earnings_days( ticker: str, n: int = 3) -> list[tuple[date, Literal["pos
     earnings = earnings.sort_values("date", ascending=False)  # pyright: ignore[reportCallIssue, reportAttributeAccessIssue]
 
     results: list[tuple[datetime.date, Literal["post-market", "pre-market"]]] = []
-
+    
     for _, row in earnings.head(n).iterrows():
         earnings_date: datetime.date = row["date"].to_pydatetime().date()  # pyright: ignore[reportAttributeAccessIssue]
         release_time: Literal["post-market", "pre-market"] = row["release_time"]  # pyright: ignore[reportAssignmentType]
@@ -101,15 +115,18 @@ def get_3pm_spike(earnings_date_data: pd.DataFrame, symbol: str):
     all_results = []
 
     for earnings_date, release_time in earnings_date_data:
+        earnings_date = pd.Timestamp(earnings_date).tz_localize("America/New_York")
+
         if release_time == "post-market":
             start = earnings_date
-            end = earnings_date + timedelta(days=2)
+            end = next_trading_day(next_trading_day(earnings_date))
         elif release_time == "pre-market":
-            start = earnings_date - timedelta(days=1)
-            end = earnings_date + timedelta(days=1)
+            start = prev_trading_day(earnings_date)
+            end = next_trading_day(earnings_date)
         else:
-            print("Date error. Could be caused by before/after day being a weekend.")
-            break
+            raise ValueError("Earnings release time missing")
+            print("Earnings release time missing from spreadsheet")
+            
 
         request = StockBarsRequest(
             symbol_or_symbols=symbol,
@@ -124,7 +141,6 @@ def get_3pm_spike(earnings_date_data: pd.DataFrame, symbol: str):
         df = df.reset_index()
         df["timestamp"] = df["timestamp"].dt.tz_convert("America/New_York")
         df = df.set_index(["symbol", "timestamp"])
-
         moves = percent_move_3pm_to_next_3pm(df)
 
         if not moves.empty:
