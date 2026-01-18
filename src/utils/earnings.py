@@ -34,29 +34,29 @@ def get_earnings_days( ticker: str, n: int = 3) -> list[tuple[date, Literal["pos
     """
 
     # filter for symbol
-    earnings = EARNINGS_DATA[EARNINGS_DATA["act_symbol"] == ticker]
+    earnings = EARNINGS_DATA[EARNINGS_DATA["Symbol"] == ticker]
 
     # parse dates
     earnings = earnings.copy()
-    earnings["date"] = pd.to_datetime(earnings["date"])
+    earnings["ReleaseDate"] = pd.to_datetime(earnings["ReleaseDate"])
 
     # exclude future earnings dates
     today = pd.Timestamp.now().normalize()
-    earnings = earnings[earnings["date"] < today]
+    earnings = earnings[earnings["ReleaseDate"] < today]
 
     # normalize release time labels
-    earnings["release_time"] = earnings["when"].map({  # pyright: ignore[reportArgumentType, reportAttributeAccessIssue]
-        "After market close": "post-market",
-        "Before market open": "pre-market"
+    earnings["release_time"] = earnings["ReleaseTime"].map({  # pyright: ignore[reportArgumentType, reportAttributeAccessIssue]
+        "After Market": "post-market",
+        "Before Market": "pre-market"
     })
 
     # Sort newest first
-    earnings = earnings.sort_values("date", ascending=False)  # pyright: ignore[reportCallIssue, reportAttributeAccessIssue]
+    #earnings = earnings.sort_values("ReleaseDate", ascending=False)  # pyright: ignore[reportCallIssue, reportAttributeAccessIssue]
 
     results: list[tuple[datetime.date, Literal["post-market", "pre-market"]]] = []
     
     for _, row in earnings.head(n).iterrows():
-        earnings_date: datetime.date = row["date"].to_pydatetime().date()  # pyright: ignore[reportAttributeAccessIssue]
+        earnings_date: datetime.date = row["ReleaseDate"].to_pydatetime().date()  # pyright: ignore[reportAttributeAccessIssue]
         release_time: Literal["post-market", "pre-market"] = row["release_time"]  # pyright: ignore[reportAssignmentType]
         results.append((earnings_date, release_time))
 
@@ -130,19 +130,19 @@ def get_3pm_spike(earnings_date_data: pd.DataFrame, symbol: str):
 
         request = StockBarsRequest(
             symbol_or_symbols=symbol,
-            timeframe=TimeFrame.Hour,  # pyright: ignore[reportArgumentType]
+            timeframe=TimeFrame.Minute,  # pyright: ignore[reportArgumentType]
             start=start,
             end=end,
         )
 
         bars = alpaca.get_stock_bars(request)
+        
         df = bars.df  # pyright: ignore[reportAttributeAccessIssue]
-
         df = df.reset_index()
         df["timestamp"] = df["timestamp"].dt.tz_convert("America/New_York")
         df = df.set_index(["symbol", "timestamp"])
         moves = percent_move_3pm_to_next_3pm(df)
-
+        print(df)
         if not moves.empty:
             moves["earnings_date"] = earnings_date
             all_results.append(moves.iloc[0])
@@ -163,12 +163,13 @@ def get_earnings_window_data(earnings_date: date, symbol: str) -> pd.DataFrame:
 
     request = StockBarsRequest(
         symbol_or_symbols=symbol,
-        timeframe=TimeFrame.Hour,  # pyright: ignore[reportArgumentType]
+        timeframe=TimeFrame.Minute,  # pyright: ignore[reportArgumentType]
         start=start,
         end=end,
     )
 
     bars = alpaca.get_stock_bars(request)
+    print("req2")
     df = bars.df  # pyright: ignore[reportAttributeAccessIssue]
 
     df = df.reset_index()

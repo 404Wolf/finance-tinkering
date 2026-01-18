@@ -14,5 +14,5 @@ alpaca = StockHistoricalDataClient(ALPACA_API_KEY, ALPACA_SECRET_KEY)
 
 alpha_v = FundamentalData(key=ALPHAVANTAGE_API_KEY)
 
-EARNINGS_DATA = pd.read_csv("data/earnings.csv")
+EARNINGS_DATA = pd.read_csv("data/earningsNewer.csv")
 

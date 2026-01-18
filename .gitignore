@@ -5,6 +5,12 @@ tinkering.py
 *.png
 .env
 .envrc
+outputOld/
+csvs/
+output/
+output2226/
+output1822RestofJan/
+outputFebNew/
 
 # Created by https://www.toptal.com/developers/gitignore/api/python
 # Edit at https://www.toptal.com/developers/gitignore?templates=python
